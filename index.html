@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Starfire Recyclers - Deep Space Salvage & Defense</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #0284c7;
+            border-radius: 3px;
+        }
+
+        .scanline {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.35) 50%,
+                rgba(0, 0, 0, 0.35)
+            );
+            background-size: 100% 4px;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 0 22px rgba(2, 132, 199, 0.15);
+        }
+
+        .btn-neon {
+            background: rgba(14, 165, 233, 0.15);
+            border: 1px solid #38bdf8;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+            transition: all 0.2s ease;
+        }
+        .btn-neon:hover:not(:disabled) {
+            background: rgba(14, 165, 233, 0.35);
+            box-shadow: 0 0 18px rgba(56, 189, 248, 0.55);
+            transform: translateY(-1px);
+        }
+        .btn-neon:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            border-color: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 overflow-hidden w-screen h-screen flex flex-col items-center justify-center">
+
+    <div class="relative w-full h-full overflow-hidden">
+        <canvas id="gameCanvas" class="w-full h-full block bg-slate-950"></canvas>
+
+        <div class="pointer-events-none absolute inset-0 scanline opacity-30"></div>
+
+        <!-- TOP HUD BAR -->
+        <div class="absolute top-3 left-3 right-3 flex flex-wrap justify-between items-start pointer-events-none gap-2 z-10">
+            <!-- Left Info Panel -->
+            <div class="glass-panel p-3 rounded-xl flex flex-col gap-2 min-w-[230px] pointer-events-auto">
+                <div class="flex items-center justify-between border-b border-slate-700/60 pb-1">
+                    <span class="text-xs font-orbitron text-cyan-400 tracking-wider">STARFIRE RECYCLERS</span>
+                    <span id="sectorNameText" class="text-xs font-bold text-amber-400">Sector 1</span>
+                </div>
+                
+                <!-- Victory Goal Progress Bar -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5 font-bold">
+                        <span class="text-emerald-400 font-orbitron">RETIREMENT GOAL ($10k)</span>
+                        <span id="goalPctText" class="text-emerald-300">0%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-emerald-500/30">
+                        <div id="goalBar" class="h-full bg-gradient-to-r from-emerald-600 to-teal-300 transition-all duration-300" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Objectives List -->
+                <div id="objectiveList" class="text-xs space-y-1 text-slate-300 border-t border-slate-800 pt-1">
+                </div>
+
+                <!-- Credits Counter -->
+                <div class="flex items-center justify-between pt-1 border-t border-slate-700/60">
+                    <span class="text-xs font-semibold text-slate-400">RECYCLING WALLET:</span>
+                    <span id="creditsText" class="font-orbitron font-bold text-emerald-400 text-lg">$0</span>
+                </div>
+            </div>
+
+            <!-- Center Gauges (Shield, Hull, Fuel, Laser Heat, Cargo) -->
+            <div class="glass-panel p-3 rounded-xl flex flex-col gap-1.5 w-full sm:w-80 pointer-events-auto">
+                <!-- Shield & Armor Bar -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5">
+                        <span class="text-cyan-400 font-bold">SHIELD / ARMOR</span>
+                        <span id="shieldText" class="text-slate-300">100/100</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="shieldBar" class="h-full bg-cyan-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Hull Bar -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5">
+                        <span class="text-rose-400 font-bold">HULL INTEGRITY</span>
+                        <span id="hullText" class="text-slate-300">100/100</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="hullBar" class="h-full bg-gradient-to-r from-rose-600 to-emerald-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Laser Cannon Heat -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5">
+                        <span class="text-purple-400 font-bold">LASER CANNON HEAT</span>
+                        <span id="heatText" class="text-slate-300">COOL</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="heatBar" class="h-full bg-purple-500 transition-all duration-75" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Fuel / Energy -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5">
+                        <span class="text-amber-400 font-bold">FUEL / ENERGY</span>
+                        <span id="fuelText" class="text-slate-300">100/100</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="fuelBar" class="h-full bg-amber-400 transition-all duration-150" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <!-- Cargo Hold -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-0.5">
+                        <span class="text-teal-400 font-bold">CARGO BAY</span>
+                        <span id="cargoText" class="text-slate-300">0 / 100 kg</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+                        <div id="cargoBar" class="h-full bg-teal-400 transition-all duration-150" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Controls & Mini-map -->
+            <div class="flex flex-col items-end gap-2 pointer-events-auto">
+                <div class="flex gap-2">
+                    <button id="btnAudioToggle" class="btn-neon px-3 py-1.5 rounded-lg text-xs font-orbitron flex items-center gap-1.5 text-cyan-300">
+                        <span id="audioIcon">🔊</span> SOUND
+                    </button>
+                    <button id="btnPause" class="btn-neon px-3 py-1.5 rounded-lg text-xs font-orbitron text-amber-300">
+                        MENU
+                    </button>
+                </div>
+                <!-- Mini map -->
+                <div class="glass-panel p-1 rounded-xl w-32 h-32 relative">
+                    <canvas id="minimapCanvas" class="w-full h-full rounded-lg bg-slate-950/90"></canvas>
+                    <div class="absolute inset-0 border border-cyan-500/30 pointer-events-none rounded-xl"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTOM CONTROLS HINT & MOTHERSHIP DOCKING PROMPT -->
+        <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
+            <div id="dockPrompt" class="hidden glass-panel px-5 py-2.5 rounded-full border-amber-400/80 animate-bounce text-amber-300 font-orbitron text-xs sm:text-sm font-bold shadow-xl">
+                ⚓ MOTHERSHIP DOCKING ZONE - PRESS [E] TO UNLOAD & UPGRADE ⚓
+            </div>
+            <div id="controlsHint" class="glass-panel px-4 py-1.5 rounded-full text-xs text-slate-300 flex flex-wrap justify-center gap-3 backdrop-blur-md">
+                <span><b class="text-cyan-400">WASD / ARROWS</b> Thrusters</span>
+                <span><b class="text-rose-400">L-CLICK / F</b> Laser Cannon</span>
+                <span><b class="text-purple-400">R-CLICK / SHIFT</b> Cutter Laser</span>
+                <span><b class="text-amber-400">SPACE</b> Tractor Beam</span>
+                <span><b class="text-emerald-400">E</b> Dock Station</span>
+            </div>
+        </div>
+
+        <!-- ON-SCREEN TOUCH / MOBILE CONTROLS -->
+        <div id="mobileControls" class="absolute inset-0 pointer-events-none z-20 hidden">
+            <!-- Joystick Zone Left -->
+            <div id="joystickZone" class="absolute bottom-6 left-6 w-32 h-32 rounded-full bg-slate-900/50 border border-slate-600/60 pointer-events-auto flex items-center justify-center shadow-2xl">
+                <div id="joystickKnob" class="w-12 h-12 rounded-full bg-cyan-500/70 border border-cyan-300 shadow-md transform translate-x-0 translate-y-0"></div>
+            </div>
+            <!-- Action Buttons Right -->
+            <div class="absolute bottom-6 right-6 flex flex-col items-end gap-2.5 pointer-events-auto">
+                <div class="flex gap-2">
+                    <button id="btnMobileLaser" class="w-14 h-14 rounded-full bg-rose-600/80 border-2 border-rose-300 text-white font-bold text-[10px] shadow-lg active:scale-90">
+                        LASER
+                    </button>
+                    <button id="btnMobileCutter" class="w-14 h-14 rounded-full bg-purple-600/80 border-2 border-purple-300 text-white font-bold text-[10px] shadow-lg active:scale-90">
+                        CUTTER
+                    </button>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnMobileTractor" class="w-16 h-14 rounded-full bg-amber-600/80 border-2 border-amber-300 text-white font-bold text-[10px] shadow-lg active:scale-90">
+                        TRACTOR
+                    </button>
+                    <button id="btnMobileDock" class="w-14 h-14 rounded-full bg-emerald-600/80 border-2 border-emerald-300 text-white font-bold text-[10px] shadow-lg active:scale-90">
+                        DOCK
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: MAIN MENU -->
+        <div id="mainMenuModal" class="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+            <div class="glass-panel p-8 rounded-2xl max-w-lg w-full text-center border-2 border-cyan-500/40 shadow-2xl space-y-6">
+                <div class="space-y-2">
+                    <h1 class="text-4xl font-black font-orbitron tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-amber-400">
+                        STARFIRE RECYCLERS
+                    </h1>
+                    <p class="text-xs uppercase tracking-widest text-slate-400 font-bold">Deep Space Salvage & Defense Fleet</p>
+                </div>
+
+                <div class="text-xs sm:text-sm text-slate-300 space-y-3 text-left bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                    <p>🛸 <b class="text-cyan-300">Clean the space debris... or die trying.</b> Hostile scavenger drones roam the graveyard sectors aiming to steal scrap!</p>
+                    <p>🎯 <b class="text-rose-400">Equipped for War:</b> Blast raiders with your <b class="text-rose-300">Laser Cannon [L-Click/F]</b> and slice Titan wrecks with the <b class="text-purple-300">Plasma Cutter [R-Click/Shift]</b>!</p>
+                    <p>💰 <b class="text-emerald-400">The $10,000 Retirement Goal:</b> Amass $10,000 in credits by selling scrap at the Mother Station and upgrading your recycler ship!</p>
+                </div>
+
+                <button id="btnStartGame" class="w-full py-4 text-lg font-bold font-orbitron rounded-xl bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-white shadow-lg shadow-cyan-500/30 transition transform hover:scale-[1.02] active:scale-95">
+                    LAUNCH STARFIRE RECYCLER
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL: IN-GAME SYSTEM MENU (PAUSE / SETTINGS) -->
+        <div id="pauseMenuModal" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+            <div class="glass-panel p-6 rounded-2xl max-w-md w-full border-2 border-cyan-500/50 shadow-2xl space-y-5">
+                <div class="flex justify-between items-center border-b border-slate-700/80 pb-3">
+                    <h2 class="text-2xl font-bold font-orbitron text-cyan-400">SYSTEM MENU</h2>
+                    <span class="text-xs font-orbitron text-amber-400">STARFIRE RECYCLERS</span>
+                </div>
+
+                <!-- Menu Navigation List -->
+                <div class="space-y-3">
+                    <button id="btnResumeMenu" class="w-full py-3 rounded-xl font-orbitron font-bold text-sm bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:opacity-90 transition">
+                        ▶ RESUME GAME
+                    </button>
+                    <button id="btnDockFromMenu" class="w-full py-3 rounded-xl font-orbitron font-bold text-sm btn-neon text-amber-300">
+                        ⚓ ENTER STATION DEPOT
+                    </button>
+                    <button id="btnViewLogsFromMenu" class="w-full py-3 rounded-xl font-orbitron font-bold text-sm btn-neon text-cyan-300">
+                        📂 VIEW RECOVERED LOGS
+                    </button>
+                    <button id="btnRestartFromMenu" class="w-full py-3 rounded-xl font-orbitron font-bold text-sm btn-neon text-rose-400 border-rose-500/50">
+                        🔄 RESTART MISSION
+                    </button>
+                </div>
+
+                <!-- Gameplay Stats Quick Summary -->
+                <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs space-y-1 text-slate-300">
+                    <div class="flex justify-between"><span>Active Sector:</span><span id="menuSectorText" class="font-bold text-amber-400">Sector 1</span></div>
+                    <div class="flex justify-between"><span>Wallet Balance:</span><span id="menuCreditsText" class="font-bold text-emerald-400">$0</span></div>
+                    <div class="flex justify-between"><span>Scavengers Blasted:</span><span id="menuEnemiesText" class="font-bold text-rose-400">0</span></div>
+                </div>
+
+                <div class="text-center">
+                    <button id="btnClosePauseMenu" class="text-xs text-slate-400 hover:text-white underline">Close Menu</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: UPGRADE SHOP & STATION -->
+        <div id="shopModal" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4">
+            <div class="glass-panel p-6 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col border-2 border-amber-500/40 shadow-2xl">
+                <!-- Shop Header -->
+                <div class="flex flex-wrap justify-between items-center border-b border-slate-700/80 pb-3 mb-3 gap-2">
+                    <div>
+                        <h2 class="text-2xl font-bold font-orbitron text-amber-400">STARFIRE DOCK & WEAPONS DEPOT</h2>
+                        <p class="text-xs text-slate-400">Sell cargo, repair hull & shields, refuel, and upgrade ship hardware.</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-slate-400 block">TOTAL CREDITS</span>
+                        <span id="shopCreditsText" class="text-2xl font-bold font-orbitron text-emerald-400">$0</span>
+                    </div>
+                </div>
+
+                <!-- Unload Summary Notification -->
+                <div id="shopUnloadNotice" class="bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 p-3 rounded-xl mb-3 text-xs font-semibold flex justify-between items-center hidden">
+                    <span id="shopUnloadText">Cargo Offloaded: +$0 Earned!</span>
+                    <span class="text-emerald-400 font-bold">✔ CARGO CLEARED</span>
+                </div>
+
+                <!-- Shop Content Container -->
+                <div class="overflow-y-auto pr-1 space-y-3 flex-1">
+                    <!-- Maintenance Row (Hull, Shields & Fuel Refill) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-1">
+                        <button id="btnRepairHull" class="btn-neon p-2.5 rounded-xl text-left flex justify-between items-center border-emerald-500/40">
+                            <div>
+                                <div class="font-bold text-xs text-emerald-300">Repair Hull</div>
+                                <div class="text-[10px] text-slate-400">Restore hull to 100%</div>
+                            </div>
+                            <span id="costRepair" class="font-orbitron font-bold text-xs text-emerald-400 bg-slate-900/90 px-2 py-1 rounded">$100</span>
+                        </button>
+
+                        <button id="btnRechargeShield" class="btn-neon p-2.5 rounded-xl text-left flex justify-between items-center border-cyan-500/40">
+                            <div>
+                                <div class="font-bold text-xs text-cyan-300">Recharge Shield</div>
+                                <div class="text-[10px] text-slate-400">Refill shields to 100%</div>
+                            </div>
+                            <span id="costShield" class="font-orbitron font-bold text-xs text-cyan-400 bg-slate-900/90 px-2 py-1 rounded">$80</span>
+                        </button>
+
+                        <button id="btnRefuel" class="btn-neon p-2.5 rounded-xl text-left flex justify-between items-center border-amber-500/40">
+                            <div>
+                                <div class="font-bold text-xs text-amber-300">Refuel Thrusters</div>
+                                <div class="text-[10px] text-slate-400">Refill thruster fuel tank</div>
+                            </div>
+                            <span id="costRefuel" class="font-orbitron font-bold text-xs text-amber-400 bg-slate-900/90 px-2 py-1 rounded">$50</span>
+                        </button>
+                    </div>
+
+                    <div class="text-xs font-orbitron text-slate-400 tracking-wider pt-2 border-t border-slate-800">HARDWARE & WEAPON UPGRADES</div>
+
+                    <!-- Dynamic Upgrade Cards -->
+                    <div id="upgradeCards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    </div>
+                </div>
+
+                <!-- Shop Footer / Exit -->
+                <div class="mt-4 pt-3 border-t border-slate-700/80 flex justify-between items-center">
+                    <div id="blackBoxLogTrigger" class="text-xs text-cyan-400 hover:underline cursor-pointer flex items-center gap-1 font-bold">
+                        📂 BLACK BOX LOGS (<span id="logsFoundCount">0</span>)
+                    </div>
+                    <button id="btnCloseShop" class="btn-neon px-6 py-2.5 rounded-xl font-orbitron font-bold text-sm text-amber-300 bg-amber-500/20 border-amber-400">
+                        UNDOCK & RESUME SECTOR
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: BLACK BOX / LOG READER -->
+        <div id="logsModal" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+            <div class="glass-panel p-6 rounded-2xl max-w-xl w-full max-h-[80vh] flex flex-col border border-cyan-500/50 shadow-2xl">
+                <div class="flex justify-between items-center border-b border-slate-700 pb-3 mb-4">
+                    <h3 class="font-orbitron font-bold text-cyan-400 text-lg">RECOVERED BLACK BOX LOGS</h3>
+                    <button id="btnCloseLogs" class="text-slate-400 hover:text-white font-bold text-xl px-2">&times;</button>
+                </div>
+                <div id="logsListContainer" class="overflow-y-auto space-y-3 flex-1 pr-2 text-sm text-slate-300">
+                </div>
+            </div>
+        </div>
+
+        <!-- MODAL: SECTOR COMPLETE SUMMARY -->
+        <div id="sectorCompleteModal" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+            <div class="glass-panel p-6 rounded-2xl max-w-md w-full text-center border-2 border-emerald-500/50 shadow-2xl space-y-5">
+                <div class="text-emerald-400 font-orbitron text-xs tracking-widest uppercase">SECTOR CLEARED</div>
+                <h2 id="sectorCompleteTitle" class="text-3xl font-extrabold font-orbitron text-white">Sector 1 Completed!</h2>
+                <div class="bg-slate-900/80 p-4 rounded-xl space-y-2 text-sm text-left border border-slate-800">
+                    <div class="flex justify-between text-slate-300">
+                        <span>Enemies Destroyed:</span>
+                        <span id="sumEnemiesText" class="font-bold text-rose-400">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-300">
+                        <span>Total Cargo Salvaged:</span>
+                        <span id="sumCargoText" class="font-bold text-cyan-400">0 kg</span>
+                    </div>
+                    <div class="flex justify-between text-slate-300">
+                        <span>Sector Bonus Reward:</span>
+                        <span id="sumBonusText" class="font-bold text-emerald-400">+$600</span>
+                    </div>
+                </div>
+                <button id="btnNextSector" class="w-full py-3.5 font-orbitron font-bold text-sm rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 hover:scale-[1.02] transition">
+                    WARP TO NEXT SECTOR
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL: GAME OVER -->
+        <div id="gameOverModal" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-4">
+            <div class="glass-panel p-8 rounded-2xl max-w-md w-full text-center border-2 border-rose-600/60 shadow-2xl space-y-6">
+                <div id="goSubtitle" class="text-rose-500 font-orbitron text-xs tracking-widest uppercase">CRITICAL HULL FAILURE</div>
+                <h2 id="goTitle" class="text-3xl font-extrabold font-orbitron text-rose-400">VESSEL DESTROYED</h2>
+                <p id="goDescription" class="text-sm text-slate-300">Your ship was blasted by scavengers or space hazards. Ensure you upgrade lasers and shield armor!</p>
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 text-sm space-y-1">
+                    <div class="flex justify-between text-slate-300"><span>Final Wallet:</span><span id="goCreditsText" class="font-bold text-emerald-400">$0</span></div>
+                    <div class="flex justify-between text-slate-300"><span>Enemies Blasted:</span><span id="goEnemiesText" class="font-bold text-rose-400">0</span></div>
+                    <div class="flex justify-between text-slate-300"><span>Sectors Reached:</span><span id="goSectorText" class="font-bold text-cyan-400">0</span></div>
+                </div>
+                <button id="btnRestartGame" class="w-full py-3.5 font-orbitron font-bold text-sm rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white shadow-lg shadow-rose-600/30 hover:scale-[1.02] transition">
+                    DEPLOY NEW STARFIRE RECYCLER
+                </button>
+            </div>
+        </div>
+
+        <!-- MODAL: VICTORY / RETIREMENT REACHED -->
+        <div id="victoryModal" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-slate-950/95 backdrop-blur-md p-4">
+            <div class="glass-panel p-8 rounded-2xl max-w-lg w-full text-center border-2 border-emerald-400/80 shadow-2xl space-y-6">
+                <div class="text-emerald-400 font-orbitron text-xs tracking-widest uppercase animate-pulse">🎉 MISSION ACCOMPLISHED 🎉</div>
+                <h2 class="text-4xl font-extrabold font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-teal-200 to-cyan-400">
+                    RETIREMENT REACHED!
+                </h2>
+                <p class="text-sm text-slate-300">You earned <b class="text-emerald-400 font-bold">$10,000 Credits</b>! You can now retire to a tranquil pleasure paradise planet in the Core Systems.</p>
+
+                <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 text-sm space-y-2 text-left">
+                    <div class="flex justify-between text-slate-300"><span>Final Wallet:</span><span id="vicCreditsText" class="font-bold text-emerald-400">$10,000</span></div>
+                    <div class="flex justify-between text-slate-300"><span>Total Enemy Raiders Destroyed:</span><span id="vicEnemiesText" class="font-bold text-rose-400">0</span></div>
+                    <div class="flex justify-between text-slate-300"><span>Total Debris Salvaged:</span><span id="vicCargoText" class="font-bold text-cyan-400">0 kg</span></div>
+                    <div class="flex justify-between text-slate-300"><span>Time Taken:</span><span id="vicTimeText" class="font-bold text-amber-300">00:00</span></div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="btnContinuePlay" class="flex-1 py-3.5 font-orbitron font-bold text-xs sm:text-sm rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 transition">
+                        ENDLESS FREE PLAY
+                    </button>
+                    <button id="btnNewGameVic" class="flex-1 py-3.5 font-orbitron font-bold text-xs sm:text-sm rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 transition">
+                        PLAY AGAIN
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MAIN GAME LOGIC -->
+    <script>
+        class SoundSystem {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+                this.thrusterOsc = null;
+                this.thrusterGain = null;
+                this.tractorOsc = null;
+                this.tractorGain = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                this.ctx = new AudioCtx();
+
+                // Thruster Rumble
+                this.thrusterOsc = this.ctx.createOscillator();
+                this.thrusterGain = this.ctx.createGain();
+                this.thrusterOsc.type = 'sawtooth';
+                this.thrusterOsc.frequency.setValueAtTime(55, this.ctx.currentTime);
+                this.thrusterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(160, this.ctx.currentTime);
+
+                this.thrusterOsc.connect(filter);
+                filter.connect(this.thrusterGain);
+                this.thrusterGain.connect(this.ctx.destination);
+                this.thrusterOsc.start();
+
+                // Tractor Beam Hum
+                this.tractorOsc = this.ctx.createOscillator();
+                this.tractorGain = this.ctx.createGain();
+                this.tractorOsc.type = 'sine';
+                this.tractorOsc.frequency.setValueAtTime(340, this.ctx.currentTime);
+                this.tractorGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                const tractorFilter = this.ctx.createBiquadFilter();
+                tractorFilter.type = 'bandpass';
+                tractorFilter.frequency.setValueAtTime(420, this.ctx.currentTime);
+
+                this.tractorOsc.connect(tractorFilter);
+                tractorFilter.connect(this.tractorGain);
+                this.tractorGain.connect(this.ctx.destination);
+                this.tractorOsc.start();
+            }
+
+            setThruster(active) {
+                if (!this.ctx || this.muted) return;
+                this.thrusterGain.gain.setTargetAtTime(active ? 0.15 : 0, this.ctx.currentTime, 0.05);
+            }
+
+            setTractor(active) {
+                if (!this.ctx || this.muted) return;
+                this.tractorGain.gain.setTargetAtTime(active ? 0.12 : 0, this.ctx.currentTime, 0.05);
+            }
+
+            playLaser() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(900, now);
+                osc.frequency.exponentialRampToValueAtTime(180, now + 0.1);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            playEnemyLaser() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(450, now);
+                osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            playCollect() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, now);
+                osc.frequency.exponentialRampToValueAtTime(1080, now + 0.12);
+                gain.gain.setValueAtTime(0.18, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            playExplosion() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+
+            playCutter() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(750, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playUpgrade() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                [300, 450, 600, 900].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.05);
+                    gain.gain.setValueAtTime(0.12, now + i * 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.05 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.05);
+                    osc.stop(now + i * 0.05 + 0.15);
+                });
+            }
+
+            playVictory() {
+                if (!this.ctx || this.muted) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.12);
+                    gain.gain.setValueAtTime(0.2, now + i * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.12);
+                    osc.stop(now + i * 0.12 + 0.4);
+                });
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                if (this.muted && this.ctx) {
+                    this.thrusterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    this.tractorGain.gain.setValueAtTime(0, this.ctx.currentTime);
+                }
+                return this.muted;
+            }
+        }
+
+        const sound = new SoundSystem();
+
+        const WORLD_SIZE = 3800;
+        const RETIREMENT_GOAL = 10000;
+
+        const DEBRIS_TYPES = {
+            SCRAP: { name: 'Scrap Metal', weight: 12, value: 30, radius: 14, color: '#94a3b8', shape: 'polygon' },
+            LARGE_WRECK: { name: 'Titan Wreckage', weight: 50, value: 140, radius: 30, color: '#64748b', shape: 'wreck', canCut: true },
+            SOLAR: { name: 'Solar Array', weight: 10, value: 45, radius: 13, color: '#0284c7', shape: 'rect' },
+            CARGO: { name: 'Supply Pod', weight: 22, value: 95, radius: 16, color: '#f59e0b', shape: 'box' },
+            FUEL: { name: 'Fuel Canister', weight: 0, value: 15, radius: 13, color: '#fbbf24', shape: 'fuel', isFuel: true },
+            MINE: { name: 'Volatile Mine', weight: 0, value: 0, radius: 14, color: '#f43f5e', shape: 'mine', hazard: true },
+            ALIEN: { name: 'Quantum Relic', weight: 15, value: 220, radius: 15, color: '#a855f7', shape: 'gem' },
+            BLACKBOX: { name: 'Black Box Log', weight: 5, value: 250, radius: 12, color: '#ec4899', shape: 'box', isBlackBox: true },
+            MILITARY: { name: 'Military Scrap', weight: 18, value: 180, radius: 15, color: '#fb7185', shape: 'gem' }
+        };
+
+        const ENEMY_TYPES = {
+            SCAVENGER: { name: 'Scavenger Drone', hp: 45, speed: 170, radius: 16, color: '#ef4444', fireRate: 1.8, range: 380, value: 120 },
+            RAIDER: { name: 'Renegade Raider', hp: 90, speed: 140, radius: 22, color: '#f97316', fireRate: 1.2, range: 450, value: 280 }
+        };
+
+        const SECTORS = [
+            {
+                id: 1,
+                name: "Sector 1: Outer Scrap Belt",
+                debrisCount: 70,
+                mineCount: 14,
+                enemyCount: 4,
+                blackBoxes: 2,
+                objectives: [
+                    { id: 'cargo', text: 'Collect 300kg Cargo Scrap', target: 300, current: 0 },
+                    { id: 'enemies', text: 'Destroy 3 Raider Drones', target: 3, current: 0 }
+                ],
+                bonus: 600
+            },
+            {
+                id: 2,
+                name: "Sector 2: Raider Ambush Cluster",
+                debrisCount: 95,
+                mineCount: 22,
+                enemyCount: 8,
+                blackBoxes: 3,
+                objectives: [
+                    { id: 'cargo', text: 'Collect 600kg Cargo Scrap', target: 600, current: 0 },
+                    { id: 'enemies', text: 'Destroy 6 Raider Ships', target: 6, current: 0 },
+                    { id: 'blackbox', text: 'Salvage 2 Black Boxes', target: 2, current: 0 }
+                ],
+                bonus: 1000
+            },
+            {
+                id: 3,
+                name: "Sector 3: Hazardous War Anomaly",
+                debrisCount: 130,
+                mineCount: 35,
+                enemyCount: 14,
+                blackBoxes: 4,
+                objectives: [
+                    { id: 'cargo', text: 'Collect 1000kg Cargo Scrap', target: 1000, current: 0 },
+                    { id: 'enemies', text: 'Destroy 10 Hostile Raiders', target: 10, current: 0 },
+                    { id: 'blackbox', text: 'Salvage 3 Black Boxes', target: 3, current: 0 }
+                ],
+                bonus: 1600
+            }
+        ];
+
+        const BLACK_BOX_LORE = [
+            { id: 1, title: "Log #104 - Frigate Helios", text: "Shields failing... engines compromised! Sector 4 jump drive jettisoned near the asteroid ridge." },
+            { id: 2, title: "Log #219 - Sentinel Cargo", text: "Unidentified raider signatures approaching fast. Requesting immediate naval escort!" },
+            { id: 3, title: "Log #305 - Fighter Ace Kaelen", text: "Scavenger fleets are raiding wreckage zones! Stay armed and keep shields powered." },
+            { id: 4, title: "Log #412 - Station Overseer", text: "Minefield deployed to halt enemy advance. Salvage crews exercise extreme caution." }
+        ];
+
+        let canvas, ctx;
+        let minimapCanvas, minimapCtx;
+        let lastTime = 0;
+        let gameRunning = false;
+        let gamePaused = false;
+        let gameWon = false;
+        let gameStartTime = 0;
+
+        let currentSectorIndex = 0;
+        let credits = 200;
+        let collectedCargoWeightTotal = 0;
+        let totalEnemiesDestroyed = 0;
+        let foundLogs = [];
+
+        const upgrades = {
+            laserPower: { name: 'Laser Cannon Power', level: 1, max: 5, baseCost: 350, desc: 'Increases cannon damage output per shot.' },
+            shieldCap: { name: 'Shield Matrix & Armor', level: 1, max: 5, baseCost: 300, desc: 'Increases max shield capacity & regeneration.' },
+            cargoCapacity: { name: 'Cargo Bay Expansion', level: 1, max: 5, baseCost: 250, desc: 'Enlarges scrap storage capacity limit.' },
+            engineSpeed: { name: 'Thruster Impulse Drive', level: 1, max: 5, baseCost: 280, desc: 'Boosts max speed and rotation agility.' },
+            tractorRange: { name: 'Tractor Beam Reach', level: 1, max: 5, baseCost: 320, desc: 'Extends tractor range and pull force.' },
+            recyclerVal: { name: 'Recycler Efficiency', level: 1, max: 5, baseCost: 400, desc: 'Increases credit payout for all scrap.' }
+        };
+
+        const keys = {
+            Up: false, Down: false, Left: false, Right: false,
+            Space: false, Laser: false, Cutter: false
+        };
+
+        let touchJoystick = { active: false, x: 0, y: 0 };
+
+        let player = null;
+        let mothership = null;
+        let debrisList = [];
+        let enemyList = [];
+        let playerProjectiles = [];
+        let enemyProjectiles = [];
+        let particles = [];
+        let laserBeams = [];
+        let floatingTexts = [];
+        let backgroundStars = [];
+
+        class PlayerShip {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = -Math.PI / 2;
+                this.radius = 16;
+
+                this.maxHull = 60;
+                this.hull = 60;
+                this.shield = 60;
+                this.maxFuel = 100;
+                this.fuel = 100;
+                this.laserHeat = 0;
+                this.isOverheated = false;
+
+                this.cargo = [];
+                this.cargoWeight = 0;
+
+                this.laserCooldown = 0;
+                this.cutterCooldown = 0;
+                this.isTractorActive = false;
+                this.isThrusting = false;
+
+                this.outOfFuelTimer = 0;
+                this.isFuelStranded = false;
+            }
+
+            getMaxShield() {
+                return 60 + (upgrades.shieldCap.level - 1) * 35;
+            }
+
+            getMaxFuel() {
+                return 100;
+            }
+
+            getLaserDamage() {
+                return 20 + (upgrades.laserPower.level - 1) * 15;
+            }
+
+            getSpeed() {
+                return 220 + (upgrades.engineSpeed.level - 1) * 45;
+            }
+
+            getMaxCargo() {
+                return 90 + (upgrades.cargoCapacity.level - 1) * 50;
+            }
+
+            getTractorRange() {
+                return 220 + (upgrades.tractorRange.level - 1) * 55;
+            }
+
+            update(dt) {
+                if (this.hull <= 0) return;
+
+                // Out of Fuel Sequence
+                if (this.fuel <= 0 && !this.isFuelStranded) {
+                    this.fuel = 0;
+                    this.isFuelStranded = true;
+                    this.outOfFuelTimer = 0;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 25, 'OUT OF FUEL! ENGINES FAILING!', '#f43f5e'));
+                }
+
+                if (this.isFuelStranded) {
+                    this.vx *= 0.96;
+                    this.vy *= 0.96;
+                    this.x += this.vx * dt;
+                    this.y += this.vy * dt;
+
+                    sound.setThruster(false);
+                    sound.setTractor(false);
+
+                    const speed = Math.hypot(this.vx, this.vy);
+                    if (speed < 5) {
+                        this.vx = 0;
+                        this.vy = 0;
+                        this.outOfFuelTimer += dt;
+
+                        if (this.outOfFuelTimer >= 1.8 && gameRunning) {
+                            gameRunning = false;
+                            document.getElementById('goTitle').innerText = 'STRANDED IN SPACE';
+                            document.getElementById('goSubtitle').innerText = 'FUEL EXHAUSTION';
+                            document.getElementById('goDescription').innerText = 'Your recycler ran out of fuel and drifted into deep space. Monitor fuel levels or buy refills at the Station!';
+                            document.getElementById('goCreditsText').innerText = `$${credits}`;
+                            document.getElementById('goEnemiesText').innerText = `${totalEnemiesDestroyed}`;
+                            document.getElementById('goSectorText').innerText = `${currentSectorIndex + 1}`;
+                            document.getElementById('gameOverModal').classList.remove('hidden');
+                        }
+                    }
+                    return;
+                }
+
+                if (this.laserCooldown > 0) this.laserCooldown -= dt;
+                if (this.cutterCooldown > 0) this.cutterCooldown -= dt;
+
+                if (this.laserHeat > 0) {
+                    this.laserHeat = Math.max(0, this.laserHeat - (this.isOverheated ? 25 : 40) * dt);
+                    if (this.laserHeat === 0) this.isOverheated = false;
+                }
+
+                let turnDir = 0;
+                if (keys.Left) turnDir -= 1;
+                if (keys.Right) turnDir += 1;
+
+                const rotSpeed = 3.8 + (upgrades.engineSpeed.level - 1) * 0.4;
+
+                if (touchJoystick.active) {
+                    const steerAngle = Math.atan2(touchJoystick.y, touchJoystick.x);
+                    const diff = steerAngle - this.angle;
+                    this.angle += Math.atan2(Math.sin(diff), Math.cos(diff)) * 0.18;
+                } else {
+                    this.angle += turnDir * rotSpeed * dt;
+                }
+
+                const thrusting = (keys.Up || (touchJoystick.active && Math.hypot(touchJoystick.x, touchJoystick.y) > 0.3)) && this.fuel > 0;
+                this.isThrusting = thrusting;
+
+                if (thrusting) {
+                    const accel = this.getSpeed() * dt;
+                    const forwardX = Math.cos(this.angle);
+                    const forwardY = Math.sin(this.angle);
+
+                    this.vx += forwardX * accel;
+                    this.vy += forwardY * accel;
+
+                    this.fuel = Math.max(0, this.fuel - 3 * dt);
+
+                    if (Math.random() < 0.6) {
+                        particles.push(new Particle(
+                            this.x - forwardX * 16 + (Math.random() - 0.5) * 6,
+                            this.y - forwardY * 16 + (Math.random() - 0.5) * 6,
+                            -forwardX * 90 + (Math.random() - 0.5) * 20,
+                            -forwardY * 90 + (Math.random() - 0.5) * 20,
+                            '#38bdf8', 0.3, Math.random() * 3 + 2
+                        ));
+                    }
+                }
+
+                sound.setThruster(thrusting);
+
+                this.vx *= 0.985;
+                this.vy *= 0.985;
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                const margin = 50;
+                if (this.x < margin) { this.x = margin; this.vx *= -0.5; }
+                if (this.x > WORLD_SIZE - margin) { this.x = WORLD_SIZE - margin; this.vx *= -0.5; }
+                if (this.y < margin) { this.y = margin; this.vy *= -0.5; }
+                if (this.y > WORLD_SIZE - margin) { this.y = WORLD_SIZE - margin; this.vy *= -0.5; }
+
+                if (keys.Laser && this.laserCooldown <= 0 && !this.isOverheated) {
+                    this.fireLaser();
+                    this.laserCooldown = 0.18;
+                }
+
+                if (keys.Cutter && this.cutterCooldown <= 0) {
+                    this.firePlasmaCutter();
+                    this.cutterCooldown = 0.25;
+                }
+
+                this.isTractorActive = keys.Space && this.fuel > 0;
+                sound.setTractor(this.isTractorActive);
+
+                if (this.isTractorActive) {
+                    this.fuel = Math.max(0, this.fuel - 2 * dt);
+                    this.applyTractorBeam(dt);
+                }
+            }
+
+            fireLaser() {
+                sound.playLaser();
+                const forwardX = Math.cos(this.angle);
+                const forwardY = Math.sin(this.angle);
+
+                playerProjectiles.push(new Projectile(
+                    this.x + forwardX * 18,
+                    this.y + forwardY * 18,
+                    forwardX * 650 + this.vx,
+                    forwardY * 650 + this.vy,
+                    this.getLaserDamage(),
+                    '#38bdf8', 1.2
+                ));
+
+                this.laserHeat += 12;
+                if (this.laserHeat >= 100) {
+                    this.laserHeat = 100;
+                    this.isOverheated = true;
+                    floatingTexts.push(new FloatingText(this.x, this.y - 20, 'WEAPON OVERHEAT!', '#ef4444'));
+                }
+            }
+
+            firePlasmaCutter() {
+                sound.playCutter();
+                const laserLength = 230;
+                const endX = this.x + Math.cos(this.angle) * laserLength;
+                const endY = this.y + Math.sin(this.angle) * laserLength;
+
+                laserBeams.push({
+                    x1: this.x + Math.cos(this.angle) * 16,
+                    y1: this.y + Math.sin(this.angle) * 16,
+                    x2: endX,
+                    y2: endY,
+                    life: 0.1
+                });
+
+                debrisList.forEach(debris => {
+                    if (debris.type.canCut) {
+                        const distToLine = pointToSegmentDistance(debris.x, debris.y, this.x, this.y, endX, endY);
+                        if (distToLine < debris.radius + 6) {
+                            debris.shatter();
+                        }
+                    }
+                });
+            }
+
+            applyTractorBeam(dt) {
+                const beamRange = this.getTractorRange();
+                const beamAngleWidth = Math.PI / 3;
+
+                debrisList.forEach(debris => {
+                    const dx = debris.x - this.x;
+                    const dy = debris.y - this.y;
+                    const dist = Math.hypot(dx, dy);
+
+                    if (dist < beamRange && dist > 15) {
+                        const angleToDebris = Math.atan2(dy, dx);
+                        let diff = angleToDebris - this.angle;
+                        diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+
+                        if (Math.abs(diff) < beamAngleWidth / 2) {
+                            const pullForce = 320 / (dist / 100 + 1);
+                            debris.vx -= Math.cos(angleToDebris) * pullForce * dt;
+                            debris.vy -= Math.sin(angleToDebris) * pullForce * dt;
+
+                            if (Math.random() < 0.2) {
+                                particles.push(new Particle(
+                                    debris.x, debris.y,
+                                    -Math.cos(angleToDebris) * 60, -Math.sin(angleToDebris) * 60,
+                                    '#22d3ee', 0.2, 2
+                                ));
+                            }
+                        }
+                    }
+                });
+            }
+
+            takeDamage(amount) {
+                if (this.shield > 0) {
+                    if (this.shield >= amount) {
+                        this.shield -= amount;
+                        amount = 0;
+                    } else {
+                        amount -= this.shield;
+                        this.shield = 0;
+                    }
+                }
+                if (amount > 0) {
+                    this.hull = Math.max(0, this.hull - amount);
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                if (this.isTractorActive) {
+                    const range = this.getTractorRange();
+                    const gradient = ctx.createRadialGradient(0, 0, 10, 0, 0, range);
+                    gradient.addColorStop(0, 'rgba(34, 211, 238, 0.4)');
+                    gradient.addColorStop(0.7, 'rgba(6, 182, 212, 0.15)');
+                    gradient.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+                    ctx.beginPath();
+                    ctx.moveTo(10, 0);
+                    ctx.arc(0, 0, range, -Math.PI / 6, Math.PI / 6);
+                    ctx.closePath();
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                }
+
+                if (this.shield > 0) {
+                    ctx.strokeStyle = `rgba(56, 189, 248, ${0.3 + (this.shield / this.getMaxShield()) * 0.4})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + 6, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.moveTo(18, 0);
+                ctx.lineTo(-12, -14);
+                ctx.lineTo(-6, -6);
+                ctx.lineTo(-14, -4);
+                ctx.lineTo(-14, 4);
+                ctx.lineTo(-6, 6);
+                ctx.lineTo(-12, 14);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.fillRect(-2, -15, 6, 3);
+                ctx.fillRect(-2, 12, 6, 3);
+
+                ctx.fillStyle = '#22d3ee';
+                ctx.beginPath();
+                ctx.ellipse(3, 0, 6, 4, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class EnemyShip {
+            constructor(x, y, typeKey) {
+                this.x = x;
+                this.y = y;
+                this.typeKey = typeKey;
+                this.type = ENEMY_TYPES[typeKey];
+                this.hp = this.type.hp;
+                this.maxHp = this.type.hp;
+                this.radius = this.type.radius;
+
+                this.vx = 0;
+                this.vy = 0;
+                this.angle = Math.random() * Math.PI * 2;
+                this.fireTimer = Math.random() * 2;
+            }
+
+            update(dt) {
+                if (!player) return;
+
+                const dx = player.x - this.x;
+                const dy = player.y - this.y;
+                const dist = Math.hypot(dx, dy);
+
+                const targetAngle = Math.atan2(dy, dx);
+                let diff = targetAngle - this.angle;
+                diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+                this.angle += diff * 3 * dt;
+
+                if (dist < 750 && dist > 140) {
+                    this.vx += Math.cos(this.angle) * this.type.speed * dt;
+                    this.vy += Math.sin(this.angle) * this.type.speed * dt;
+                }
+
+                this.vx *= 0.98;
+                this.vy *= 0.98;
+
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+
+                this.fireTimer -= dt;
+                if (dist < this.type.range && this.fireTimer <= 0) {
+                    this.fireTimer = this.type.fireRate;
+                    this.shoot();
+                }
+            }
+
+            shoot() {
+                sound.playEnemyLaser();
+                const forwardX = Math.cos(this.angle);
+                const forwardY = Math.sin(this.angle);
+
+                enemyProjectiles.push(new Projectile(
+                    this.x + forwardX * 18,
+                    this.y + forwardY * 18,
+                    forwardX * 450,
+                    forwardY * 450,
+                    28,
+                    '#ef4444', 1.5
+                ));
+            }
+
+            takeDamage(dmg) {
+                this.hp -= dmg;
+                if (this.hp <= 0) {
+                    this.destroy();
+                }
+            }
+
+            destroy() {
+                sound.playExplosion();
+                totalEnemiesDestroyed++;
+
+                const obj = SECTORS[currentSectorIndex].objectives.find(o => o.id === 'enemies');
+                if (obj) obj.current = Math.min(obj.target, obj.current + 1);
+
+                for (let i = 0; i < 2; i++) {
+                    const scrap = new Debris(this.x + (Math.random() - 0.5) * 15, this.y + (Math.random() - 0.5) * 15, 'MILITARY');
+                    scrap.vx = (Math.random() - 0.5) * 60;
+                    scrap.vy = (Math.random() - 0.5) * 60;
+                    debrisList.push(scrap);
+                }
+
+                for (let i = 0; i < 18; i++) {
+                    particles.push(new Particle(
+                        this.x, this.y,
+                        (Math.random() - 0.5) * 150, (Math.random() - 0.5) * 150,
+                        '#f97316', 0.5, Math.random() * 4 + 2
+                    ));
+                }
+
+                floatingTexts.push(new FloatingText(this.x, this.y, 'ENEMY DESTROYED!', '#f43f5e'));
+
+                const idx = enemyList.indexOf(this);
+                if (idx !== -1) enemyList.splice(idx, 1);
+
+                checkObjectivesComplete();
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+
+                ctx.fillStyle = '#1e1b4b';
+                ctx.strokeStyle = this.type.color;
+                ctx.lineWidth = 2;
+
+                ctx.beginPath();
+                ctx.moveTo(16, 0);
+                ctx.lineTo(-12, -12);
+                ctx.lineTo(-4, 0);
+                ctx.lineTo(-12, 12);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.rotate(-this.angle);
+                const hpPct = Math.max(0, this.hp / this.maxHp);
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+                ctx.fillRect(-15, -22, 30, 4);
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-15, -22, 30 * hpPct, 4);
+
+                ctx.restore();
+            }
+        }
+
+        class Projectile {
+            constructor(x, y, vx, vy, damage, color, life) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.damage = damage;
+                this.color = color;
+                this.life = life;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x - this.vx * 0.04, this.y - this.vy * 0.04);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        class Mothership {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.radius = 110;
+                this.dockRadius = 180;
+                this.rotation = 0;
+            }
+
+            update(dt) {
+                this.rotation += 0.15 * dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 8]);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.dockRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.rotate(this.rotation);
+
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 6;
+                ctx.beginPath();
+                ctx.moveTo(-this.radius, 0); ctx.lineTo(this.radius, 0);
+                ctx.moveTo(0, -this.radius); ctx.lineTo(0, this.radius);
+                ctx.stroke();
+
+                ctx.fillStyle = '#0284c7';
+                ctx.strokeStyle = '#e0f2fe';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, 38, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.restore();
+            }
+        }
+
+        class Debris {
+            constructor(x, y, typeKey) {
+                this.x = x;
+                this.y = y;
+                this.typeKey = typeKey;
+                this.type = DEBRIS_TYPES[typeKey];
+                this.radius = this.type.radius;
+                this.weight = this.type.weight;
+                this.value = this.type.value;
+
+                this.vx = (Math.random() - 0.5) * 30;
+                this.vy = (Math.random() - 0.5) * 30;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotSpeed = (Math.random() - 0.5) * 1.5;
+
+                this.points = [];
+                const ptCount = 6;
+                for (let i = 0; i < ptCount; i++) {
+                    const angle = (Math.PI * 2 / ptCount) * i;
+                    const r = this.radius * (0.7 + Math.random() * 0.5);
+                    this.points.push({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+                }
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.rotation += this.rotSpeed * dt;
+
+                this.vx *= 0.995;
+                this.vy *= 0.995;
+
+                if (this.x < 30 || this.x > WORLD_SIZE - 30) this.vx *= -1;
+                if (this.y < 30 || this.y > WORLD_SIZE - 30) this.vy *= -1;
+            }
+
+            shatter() {
+                sound.playExplosion();
+                for (let i = 0; i < 3; i++) {
+                    const scrap = new Debris(this.x + (Math.random() - 0.5) * 10, this.y + (Math.random() - 0.5) * 10, 'SCRAP');
+                    scrap.vx = this.vx + (Math.random() - 0.5) * 80;
+                    scrap.vy = this.vy + (Math.random() - 0.5) * 80;
+                    debrisList.push(scrap);
+                }
+
+                for (let i = 0; i < 10; i++) {
+                    particles.push(new Particle(
+                        this.x, this.y,
+                        (Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120,
+                        this.type.color, 0.4, Math.random() * 4 + 2
+                    ));
+                }
+
+                const idx = debrisList.indexOf(this);
+                if (idx !== -1) debrisList.splice(idx, 1);
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                ctx.fillStyle = this.type.color;
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1.5;
+
+                if (this.type.shape === 'polygon') {
+                    ctx.beginPath();
+                    ctx.moveTo(this.points[0].x, this.points[0].y);
+                    for (let i = 1; i < this.points.length; i++) {
+                        ctx.lineTo(this.points[i].x, this.points[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.type.shape === 'wreck') {
+                    ctx.fillStyle = '#475569';
+                    ctx.beginPath();
+                    ctx.rect(-this.radius, -this.radius * 0.6, this.radius * 2, this.radius * 1.2);
+                    ctx.fill();
+                    ctx.stroke();
+                } else if (this.type.shape === 'rect') {
+                    ctx.fillRect(-this.radius, -this.radius / 2, this.radius * 2, this.radius);
+                    ctx.strokeRect(-this.radius, -this.radius / 2, this.radius * 2, this.radius);
+                } else if (this.type.shape === 'box') {
+                    ctx.fillRect(-this.radius, -this.radius, this.radius * 2, this.radius * 2);
+                    ctx.strokeRect(-this.radius, -this.radius, this.radius * 2, this.radius * 2);
+                } else if (this.type.shape === 'fuel') {
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fillRect(-this.radius * 0.7, -this.radius, this.radius * 1.4, this.radius * 2);
+                    ctx.strokeStyle = '#fef08a';
+                    ctx.strokeRect(-this.radius * 0.7, -this.radius, this.radius * 1.4, this.radius * 2);
+                    
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fillRect(-this.radius * 0.35, -this.radius - 3, this.radius * 0.7, 3);
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(-this.radius * 0.4, -this.radius * 0.3, this.radius * 0.8, this.radius * 0.6);
+                } else if (this.type.shape === 'mine') {
+                    const pulse = Math.sin(Date.now() * 0.008) * 3;
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius + pulse * 0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fda4af';
+                    ctx.stroke();
+                } else if (this.type.shape === 'gem') {
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.radius);
+                    ctx.lineTo(this.radius, 0);
+                    ctx.lineTo(0, this.radius);
+                    ctx.lineTo(-this.radius, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, vx, vy, color, life, size) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.color = color;
+                this.life = life;
+                this.maxLife = life;
+                this.size = size;
+            }
+
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life / this.maxLife);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color = '#22c55e') {
+                this.x = x;
+                this.y = y;
+                this.text = text;
+                this.color = color;
+                this.life = 1.2;
+            }
+
+            update(dt) {
+                this.y -= 25 * dt;
+                this.life -= dt;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.font = 'bold 12px Orbitron, sans-serif';
+                ctx.fillText(this.text, this.x - 25, this.y);
+                ctx.restore();
+            }
+        }
+
+        function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+            const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+            if (l2 === 0) return Math.hypot(px - x1, py - y1);
+            let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+        }
+
+        function initGame() {
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            minimapCanvas = document.getElementById('minimapCanvas');
+            minimapCtx = minimapCanvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            backgroundStars = [];
+            for (let i = 0; i < 450; i++) {
+                backgroundStars.push({
+                    x: Math.random() * WORLD_SIZE,
+                    y: Math.random() * WORLD_SIZE,
+                    size: Math.random() * 2 + 0.5,
+                    alpha: Math.random() * 0.8 + 0.2
+                });
+            }
+
+            player = new PlayerShip(WORLD_SIZE / 2, WORLD_SIZE / 2 + 250);
+            mothership = new Mothership(WORLD_SIZE / 2, WORLD_SIZE / 2);
+
+            setupInputListeners();
+            setupUIListeners();
+            loadSector(0);
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            minimapCanvas.width = 120;
+            minimapCanvas.height = 120;
+        }
+
+        function loadSector(index) {
+            currentSectorIndex = index;
+            const sector = SECTORS[currentSectorIndex];
+
+            sector.objectives.forEach(obj => obj.current = 0);
+
+            debrisList = [];
+            enemyList = [];
+            playerProjectiles = [];
+            enemyProjectiles = [];
+            particles = [];
+            laserBeams = [];
+            floatingTexts = [];
+
+            const typesKeys = Object.keys(DEBRIS_TYPES).filter(k => k !== 'MINE' && k !== 'BLACKBOX' && k !== 'MILITARY' && k !== 'FUEL');
+            for (let i = 0; i < sector.debrisCount; i++) {
+                const randType = typesKeys[Math.floor(Math.random() * typesKeys.length)];
+                const pos = getRandomWorldPosAwayFromCenter(280);
+                debrisList.push(new Debris(pos.x, pos.y, randType));
+            }
+
+            const fuelCount = 10 + index * 4;
+            for (let i = 0; i < fuelCount; i++) {
+                const pos = getRandomWorldPosAwayFromCenter(300);
+                debrisList.push(new Debris(pos.x, pos.y, 'FUEL'));
+            }
+
+            for (let i = 0; i < sector.mineCount; i++) {
+                const pos = getRandomWorldPosAwayFromCenter(350);
+                debrisList.push(new Debris(pos.x, pos.y, 'MINE'));
+            }
+
+            for (let i = 0; i < sector.blackBoxes; i++) {
+                const pos = getRandomWorldPosAwayFromCenter(300);
+                debrisList.push(new Debris(pos.x, pos.y, 'BLACKBOX'));
+            }
+
+            for (let i = 0; i < sector.enemyCount; i++) {
+                const pos = getRandomWorldPosAwayFromCenter(500);
+                const enemyKey = i % 2 === 0 ? 'SCAVENGER' : 'RAIDER';
+                enemyList.push(new EnemyShip(pos.x, pos.y, enemyKey));
+            }
+
+            updateHUD();
+        }
+
+        function getRandomWorldPosAwayFromCenter(minDist) {
+            let x, y, dist;
+            do {
+                x = 120 + Math.random() * (WORLD_SIZE - 240);
+                y = 120 + Math.random() * (WORLD_SIZE - 240);
+                dist = Math.hypot(x - WORLD_SIZE / 2, y - WORLD_SIZE / 2);
+            } while (dist < minDist);
+            return { x, y };
+        }
+
+        function setupInputListeners() {
+            window.addEventListener('keydown', (e) => {
+                sound.init();
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = true;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = true;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = true;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = true;
+                if (e.code === 'Space') keys.Space = true;
+                if (e.code === 'KeyF') keys.Laser = true;
+                if (e.code === 'ShiftLeft' || e.code === 'KeyC') keys.Cutter = true;
+                if (e.code === 'KeyE') checkDockingTrigger();
+                if (e.code === 'Escape') togglePauseMenu();
+            });
+
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') keys.Up = false;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') keys.Down = false;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') keys.Left = false;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') keys.Right = false;
+                if (e.code === 'Space') keys.Space = false;
+                if (e.code === 'KeyF') keys.Laser = false;
+                if (e.code === 'ShiftLeft' || e.code === 'KeyC') keys.Cutter = false;
+            });
+
+            canvas.addEventListener('mousedown', (e) => {
+                sound.init();
+                if (e.button === 0) keys.Laser = true;
+                if (e.button === 2) keys.Cutter = true;
+            });
+            canvas.addEventListener('mouseup', (e) => {
+                if (e.button === 0) keys.Laser = false;
+                if (e.button === 2) keys.Cutter = false;
+            });
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            const joyZone = document.getElementById('joystickZone');
+            const joyKnob = document.getElementById('joystickKnob');
+
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                document.getElementById('mobileControls').classList.remove('hidden');
+            }
+
+            let joyRect = null;
+            joyZone.addEventListener('touchstart', (e) => {
+                sound.init();
+                joyRect = joyZone.getBoundingClientRect();
+                touchJoystick.active = true;
+                updateJoystick(e.touches[0]);
+            }, { passive: true });
+
+            joyZone.addEventListener('touchmove', (e) => {
+                if (touchJoystick.active) updateJoystick(e.touches[0]);
+            }, { passive: true });
+
+            const resetJoy = () => {
+                touchJoystick.active = false;
+                touchJoystick.x = 0;
+                touchJoystick.y = 0;
+                joyKnob.style.transform = `translate(0px, 0px)`;
+            };
+            joyZone.addEventListener('touchend', resetJoy);
+            joyZone.addEventListener('touchcancel', resetJoy);
+
+            function updateJoystick(touch) {
+                const centerX = joyRect.left + joyRect.width / 2;
+                const centerY = joyRect.top + joyRect.height / 2;
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const maxR = joyRect.width / 2 - 10;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > maxR) {
+                    dx = (dx / dist) * maxR;
+                    dy = (dy / dist) * maxR;
+                }
+
+                touchJoystick.x = dx / maxR;
+                touchJoystick.y = dy / maxR;
+                joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            }
+
+            const btnLaser = document.getElementById('btnMobileLaser');
+            btnLaser.addEventListener('touchstart', (e) => { e.preventDefault(); keys.Laser = true; });
+            btnLaser.addEventListener('touchend', (e) => { e.preventDefault(); keys.Laser = false; });
+
+            const btnCutter = document.getElementById('btnMobileCutter');
+            btnCutter.addEventListener('touchstart', (e) => { e.preventDefault(); keys.Cutter = true; });
+            btnCutter.addEventListener('touchend', (e) => { e.preventDefault(); keys.Cutter = false; });
+
+            const btnTractor = document.getElementById('btnMobileTractor');
+            btnTractor.addEventListener('touchstart', (e) => { e.preventDefault(); keys.Space = true; });
+            btnTractor.addEventListener('touchend', (e) => { e.preventDefault(); keys.Space = false; });
+
+            document.getElementById('btnMobileDock').addEventListener('click', checkDockingTrigger);
+        }
+
+        function togglePauseMenu() {
+            if (!gameRunning) return;
+            gamePaused = !gamePaused;
+            const menuModal = document.getElementById('pauseMenuModal');
+
+            if (gamePaused) {
+                document.getElementById('menuSectorText').innerText = SECTORS[currentSectorIndex].name;
+                document.getElementById('menuCreditsText').innerText = `$${credits}`;
+                document.getElementById('menuEnemiesText').innerText = `${totalEnemiesDestroyed}`;
+                menuModal.classList.remove('hidden');
+            } else {
+                menuModal.classList.add('hidden');
+            }
+        }
+
+        function setupUIListeners() {
+            document.getElementById('btnStartGame').addEventListener('click', () => {
+                document.getElementById('mainMenuModal').classList.add('hidden');
+                gameRunning = true;
+                gameStartTime = Date.now();
+            });
+
+            document.getElementById('btnPause').addEventListener('click', togglePauseMenu);
+            document.getElementById('btnResumeMenu').addEventListener('click', togglePauseMenu);
+            document.getElementById('btnClosePauseMenu').addEventListener('click', togglePauseMenu);
+
+            document.getElementById('btnDockFromMenu').addEventListener('click', () => {
+                togglePauseMenu();
+                openShopModal();
+            });
+
+            document.getElementById('btnViewLogsFromMenu').addEventListener('click', () => {
+                togglePauseMenu();
+                showLogsModal();
+            });
+
+            document.getElementById('btnRestartFromMenu').addEventListener('click', () => {
+                togglePauseMenu();
+                restartNewGame();
+            });
+
+            document.getElementById('btnAudioToggle').addEventListener('click', () => {
+                const muted = sound.toggleMute();
+                document.getElementById('audioIcon').innerText = muted ? '🔇' : '🔊';
+            });
+
+            document.getElementById('btnCloseShop').addEventListener('click', () => {
+                document.getElementById('shopModal').classList.add('hidden');
+                gamePaused = false;
+            });
+
+            document.getElementById('btnRepairHull').addEventListener('click', repairHull);
+            document.getElementById('btnRechargeShield').addEventListener('click', rechargeShield);
+            document.getElementById('btnRefuel').addEventListener('click', refuelShip);
+
+            document.getElementById('blackBoxLogTrigger').addEventListener('click', showLogsModal);
+            document.getElementById('btnCloseLogs').addEventListener('click', () => {
+                document.getElementById('logsModal').classList.add('hidden');
+            });
+
+            document.getElementById('btnNextSector').addEventListener('click', () => {
+                document.getElementById('sectorCompleteModal').classList.add('hidden');
+                if (currentSectorIndex + 1 < SECTORS.length) {
+                    loadSector(currentSectorIndex + 1);
+                    gamePaused = false;
+                } else {
+                    loadSector(0);
+                    gamePaused = false;
+                }
+            });
+
+            document.getElementById('btnRestartGame').addEventListener('click', restartNewGame);
+            document.getElementById('btnNewGameVic').addEventListener('click', restartNewGame);
+
+            document.getElementById('btnContinuePlay').addEventListener('click', () => {
+                document.getElementById('victoryModal').classList.add('hidden');
+                gamePaused = false;
+            });
+        }
+
+        function restartNewGame() {
+            document.getElementById('gameOverModal').classList.add('hidden');
+            document.getElementById('victoryModal').classList.add('hidden');
+            player = new PlayerShip(WORLD_SIZE / 2, WORLD_SIZE / 2 + 250);
+            credits = 200;
+            collectedCargoWeightTotal = 0;
+            totalEnemiesDestroyed = 0;
+            foundLogs = [];
+            gameWon = false;
+            gameStartTime = Date.now();
+            loadSector(0);
+            gamePaused = false;
+            gameRunning = true;
+        }
+
+        function checkDockingTrigger() {
+            if (!player || !mothership) return;
+            const dist = Math.hypot(player.x - mothership.x, player.y - mothership.y);
+            if (dist <= mothership.dockRadius) {
+                openShopModal();
+            }
+        }
+
+        function openShopModal() {
+            gamePaused = true;
+            const shopModal = document.getElementById('shopModal');
+            const notice = document.getElementById('shopUnloadNotice');
+
+            if (player.cargo.length > 0) {
+                let payout = 0;
+                let totalWeight = 0;
+                const multiplier = 1 + (upgrades.recyclerVal.level - 1) * 0.3;
+
+                player.cargo.forEach(item => {
+                    payout += item.value * multiplier;
+                    totalWeight += item.weight;
+
+                    const obj = SECTORS[currentSectorIndex].objectives.find(o => o.id === 'cargo');
+                    if (obj) obj.current = Math.min(obj.target, obj.current + item.weight);
+                });
+
+                payout = Math.round(payout);
+                credits += payout;
+                collectedCargoWeightTotal += totalWeight;
+                player.cargo = [];
+                player.cargoWeight = 0;
+
+                sound.playUpgrade();
+                notice.classList.remove('hidden');
+                document.getElementById('shopUnloadText').innerText = `Cargo Offloaded: +$${payout} Credits Earned! (${totalWeight}kg recycled)`;
+            } else {
+                notice.classList.add('hidden');
+            }
+
+            updateShopUI();
+            shopModal.classList.remove('hidden');
+            checkVictoryCondition();
+            checkObjectivesComplete();
+        }
+
+        function updateShopUI() {
+            document.getElementById('shopCreditsText').innerText = `$${credits}`;
+            document.getElementById('logsFoundCount').innerText = foundLogs.length;
+
+            const cardsContainer = document.getElementById('upgradeCards');
+            cardsContainer.innerHTML = '';
+
+            Object.keys(upgrades).forEach(key => {
+                const up = upgrades[key];
+                const cost = Math.round(up.baseCost * Math.pow(1.6, up.level - 1));
+                const isMax = up.level >= up.max;
+
+                const card = document.createElement('div');
+                card.className = 'glass-panel p-3 rounded-xl flex flex-col justify-between border-slate-700/80 gap-2';
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-xs text-cyan-300 font-orbitron">${up.name}</span>
+                            <span class="text-[10px] text-amber-400 font-bold">Lvl ${up.level}/${up.max}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">${up.desc}</p>
+                    </div>
+                    <button class="btn-neon w-full py-1.5 rounded-lg font-orbitron text-xs flex justify-between items-center px-3"
+                            ${(isMax || credits < cost) ? 'disabled' : ''} onclick="buyUpgrade('${key}')">
+                        <span>${isMax ? 'MAXED OUT' : 'UPGRADE'}</span>
+                        <span>${isMax ? '-' : '$' + cost}</span>
+                    </button>
+                `;
+                cardsContainer.appendChild(card);
+            });
+        }
+
+        window.buyUpgrade = function(key) {
+            const up = upgrades[key];
+            const cost = Math.round(up.baseCost * Math.pow(1.6, up.level - 1));
+
+            if (credits >= cost && up.level < up.max) {
+                credits -= cost;
+                up.level++;
+                sound.playUpgrade();
+                updateShopUI();
+                updateHUD();
+                checkVictoryCondition();
+            }
+        };
+
+        function repairHull() {
+            const cost = 100;
+            if (credits >= cost && player.hull < player.maxHull) {
+                credits -= cost;
+                player.hull = player.maxHull;
+                sound.playUpgrade();
+                updateShopUI();
+                updateHUD();
+            }
+        }
+
+        function rechargeShield() {
+            const cost = 80;
+            const maxShield = player.getMaxShield();
+            if (credits >= cost && player.shield < maxShield) {
+                credits -= cost;
+                player.shield = maxShield;
+                sound.playUpgrade();
+                updateShopUI();
+                updateHUD();
+            }
+        }
+
+        function refuelShip() {
+            const cost = 50;
+            if (credits >= cost && player.fuel < player.getMaxFuel()) {
+                credits -= cost;
+                player.fuel = player.getMaxFuel();
+                player.isFuelStranded = false;
+                player.outOfFuelTimer = 0;
+                sound.playUpgrade();
+                updateShopUI();
+                updateHUD();
+            }
+        }
+
+        function showLogsModal() {
+            const container = document.getElementById('logsListContainer');
+            container.innerHTML = '';
+
+            if (foundLogs.length === 0) {
+                container.innerHTML = '<p class="text-slate-400 italic">No black boxes recovered yet. Collect pink boxes in space!</p>';
+            } else {
+                foundLogs.forEach(log => {
+                    const box = document.createElement('div');
+                    box.className = 'bg-slate-900/80 p-3 rounded-xl border border-cyan-500/30 space-y-1';
+                    box.innerHTML = `
+                        <div class="font-orbitron font-bold text-xs text-cyan-300">${log.title}</div>
+                        <div class="text-xs text-slate-300">${log.text}</div>
+                    `;
+                    container.appendChild(box);
+                });
+            }
+
+            document.getElementById('logsModal').classList.remove('hidden');
+        }
+
+        function checkObjectivesComplete() {
+            const sector = SECTORS[currentSectorIndex];
+            const allComplete = sector.objectives.every(o => o.current >= o.target);
+
+            if (allComplete) {
+                credits += sector.bonus;
+                document.getElementById('sumEnemiesText').innerText = totalEnemiesDestroyed;
+                document.getElementById('sumCargoText').innerText = `${collectedCargoWeightTotal} kg`;
+                document.getElementById('sumBonusText').innerText = `+$${sector.bonus}`;
+                document.getElementById('sectorCompleteTitle').innerText = `${sector.name} Cleared!`;
+
+                document.getElementById('sectorCompleteModal').classList.remove('hidden');
+                gamePaused = true;
+                sound.playVictory();
+            }
+        }
+
+        function checkVictoryCondition() {
+            if (credits >= RETIREMENT_GOAL && !gameWon) {
+                gameWon = true;
+                gamePaused = true;
+
+                const elapsedSec = Math.floor((Date.now() - gameStartTime) / 1000);
+                const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+                const secs = String(elapsedSec % 60).padStart(2, '0');
+
+                document.getElementById('vicCreditsText').innerText = `$${credits}`;
+                document.getElementById('vicEnemiesText').innerText = totalEnemiesDestroyed;
+                document.getElementById('vicCargoText').innerText = `${collectedCargoWeightTotal} kg`;
+                document.getElementById('vicTimeText').innerText = `${mins}:${secs}`;
+
+                document.getElementById('victoryModal').classList.remove('hidden');
+                sound.playVictory();
+            }
+        }
+
+        function updateHUD() {
+            if (!player) return;
+
+            document.getElementById('sectorNameText').innerText = SECTORS[currentSectorIndex].name;
+            document.getElementById('creditsText').innerText = `$${credits}`;
+
+            const goalPct = Math.min(100, Math.floor((credits / RETIREMENT_GOAL) * 100));
+            document.getElementById('goalPctText').innerText = `${goalPct}%`;
+            document.getElementById('goalBar').style.width = `${goalPct}%`;
+
+            const maxShield = player.getMaxShield();
+            document.getElementById('shieldText').innerText = `${Math.ceil(player.shield)}/${maxShield}`;
+            document.getElementById('shieldBar').style.width = `${(player.shield / maxShield) * 100}%`;
+
+            document.getElementById('hullText').innerText = `${Math.ceil(player.hull)}/${player.maxHull}`;
+            document.getElementById('hullBar').style.width = `${(player.hull / player.maxHull) * 100}%`;
+
+            document.getElementById('heatText').innerText = player.isOverheated ? 'OVERHEAT!' : (player.laserHeat > 50 ? 'HOT' : 'COOL');
+            document.getElementById('heatBar').style.width = `${player.laserHeat}%`;
+
+            document.getElementById('fuelText').innerText = `${Math.ceil(player.fuel)}/${player.getMaxFuel()}`;
+            document.getElementById('fuelBar').style.width = `${(player.fuel / player.getMaxFuel()) * 100}%`;
+
+            const maxCargo = player.getMaxCargo();
+            document.getElementById('cargoText').innerText = `${player.cargoWeight} / ${maxCargo} kg`;
+            document.getElementById('cargoBar').style.width = `${(player.cargoWeight / maxCargo) * 100}%`;
+
+            const objContainer = document.getElementById('objectiveList');
+            objContainer.innerHTML = '';
+            SECTORS[currentSectorIndex].objectives.forEach(o => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center';
+                const isDone = o.current >= o.target;
+                item.innerHTML = `
+                    <span class="${isDone ? 'text-emerald-400 font-semibold' : 'text-slate-300'}">${o.text}</span>
+                    <span class="font-orbitron font-bold ${isDone ? 'text-emerald-400' : 'text-amber-400'}">${o.current}/${o.target}</span>
+                `;
+                objContainer.appendChild(item);
+            });
+
+            const dockPrompt = document.getElementById('dockPrompt');
+            const distToStation = Math.hypot(player.x - mothership.x, player.y - mothership.y);
+            if (distToStation <= mothership.dockRadius) {
+                dockPrompt.classList.remove('hidden');
+            } else {
+                dockPrompt.classList.add('hidden');
+            }
+        }
+
+        function gameLoop(now) {
+            const dt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            if (gameRunning && !gamePaused) {
+                updateGame(dt);
+            }
+
+            renderGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateGame(dt) {
+            if (!player) return;
+
+            player.update(dt);
+            mothership.update(dt);
+
+            for (let i = enemyList.length - 1; i >= 0; i--) {
+                enemyList[i].update(dt);
+            }
+
+            for (let i = playerProjectiles.length - 1; i >= 0; i--) {
+                const proj = playerProjectiles[i];
+                proj.update(dt);
+
+                for (let j = enemyList.length - 1; j >= 0; j--) {
+                    const enemy = enemyList[j];
+                    if (Math.hypot(proj.x - enemy.x, proj.y - enemy.y) < enemy.radius + 4) {
+                        enemy.takeDamage(proj.damage);
+                        playerProjectiles.splice(i, 1);
+                        break;
+                    }
+                }
+
+                if (proj.life <= 0) playerProjectiles.splice(i, 1);
+            }
+
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const proj = enemyProjectiles[i];
+                proj.update(dt);
+
+                const distToPlayer = Math.hypot(proj.x - player.x, proj.y - player.y);
+                if (distToPlayer < player.radius + 6) {
+                    sound.playExplosion();
+                    player.takeDamage(proj.damage);
+                    floatingTexts.push(new FloatingText(player.x, player.y - 20, `-${proj.damage} DAMAGE`, '#f43f5e'));
+                    enemyProjectiles.splice(i, 1);
+                    continue;
+                }
+
+                if (proj.life <= 0) enemyProjectiles.splice(i, 1);
+            }
+
+            for (let i = laserBeams.length - 1; i >= 0; i--) {
+                laserBeams[i].life -= dt;
+                if (laserBeams[i].life <= 0) laserBeams.splice(i, 1);
+            }
+
+            const maxCargo = player.getMaxCargo();
+
+            for (let i = debrisList.length - 1; i >= 0; i--) {
+                const debris = debrisList[i];
+                debris.update(dt);
+
+                const dist = Math.hypot(debris.x - player.x, debris.y - player.y);
+
+                if (dist < player.radius + debris.radius) {
+                    if (debris.type.hazard) {
+                        sound.playExplosion();
+                        player.takeDamage(35);
+                        floatingTexts.push(new FloatingText(player.x, player.y - 20, 'MINE EXPLOSION!', '#ef4444'));
+
+                        for (let p = 0; p < 20; p++) {
+                            particles.push(new Particle(
+                                debris.x, debris.y,
+                                (Math.random() - 0.5) * 160, (Math.random() - 0.5) * 160,
+                                '#f43f5e', 0.5, Math.random() * 5 + 2
+                            ));
+                        }
+
+                        debrisList.splice(i, 1);
+                    } else if (debris.type.isFuel) {
+                        sound.playCollect();
+                        const restoreAmount = 35;
+                        player.fuel = Math.min(player.getMaxFuel(), player.fuel + restoreAmount);
+                        player.isFuelStranded = false;
+                        player.outOfFuelTimer = 0;
+
+                        floatingTexts.push(new FloatingText(debris.x, debris.y, `+${restoreAmount} FUEL BOOST!`, '#fbbf24'));
+
+                        for (let p = 0; p < 12; p++) {
+                            particles.push(new Particle(
+                                debris.x, debris.y,
+                                (Math.random() - 0.5) * 100, (Math.random() - 0.5) * 100,
+                                '#fbbf24', 0.4, Math.random() * 4 + 2
+                            ));
+                        }
+
+                        debrisList.splice(i, 1);
+                    } else if (player.cargoWeight + debris.weight <= maxCargo) {
+                        sound.playCollect();
+                        player.cargo.push(debris);
+                        player.cargoWeight += debris.weight;
+
+                        if (debris.type.isBlackBox) {
+                            const unread = BLACK_BOX_LORE.find(l => !foundLogs.some(fl => fl.id === l.id)) || BLACK_BOX_LORE[0];
+                            foundLogs.push(unread);
+                            floatingTexts.push(new FloatingText(debris.x, debris.y, '📂 BLACK BOX RECOVERED!', '#a855f7'));
+
+                            const obj = SECTORS[currentSectorIndex].objectives.find(o => o.id === 'blackbox');
+                            if (obj) obj.current = Math.min(obj.target, obj.current + 1);
+                        } else {
+                            floatingTexts.push(new FloatingText(debris.x, debris.y, `+${debris.weight}kg ${debris.type.name}`, '#22d3ee'));
+                        }
+
+                        debrisList.splice(i, 1);
+                        checkObjectivesComplete();
+                    } else if (Math.random() < 0.05) {
+                        floatingTexts.push(new FloatingText(player.x, player.y - 15, 'CARGO HOLD FULL!', '#f59e0b'));
+                    }
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update(dt);
+                if (particles[i].life <= 0) particles.splice(i, 1);
+            }
+
+            for (let i = floatingTexts.length - 1; i >= 0; i--) {
+                floatingTexts[i].update(dt);
+                if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+            }
+
+            if (player.hull <= 0 && gameRunning) {
+                gameRunning = false;
+                sound.playExplosion();
+                document.getElementById('goTitle').innerText = 'VESSEL DESTROYED';
+                document.getElementById('goSubtitle').innerText = 'CRITICAL HULL FAILURE';
+                document.getElementById('goDescription').innerText = 'Your ship was blasted by scavengers or space hazards. Ensure you upgrade lasers and shield armor!';
+                document.getElementById('goCreditsText').innerText = `$${credits}`;
+                document.getElementById('goEnemiesText').innerText = `${totalEnemiesDestroyed}`;
+                document.getElementById('goSectorText').innerText = `${currentSectorIndex + 1}`;
+                document.getElementById('gameOverModal').classList.remove('hidden');
+            }
+
+            updateHUD();
+        }
+
+        function renderGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!player) return;
+
+            const camX = player.x - canvas.width / 2;
+            const camY = player.y - canvas.height / 2;
+
+            ctx.save();
+            ctx.translate(-camX, -camY);
+
+            ctx.strokeStyle = 'rgba(30, 41, 59, 0.6)';
+            ctx.lineWidth = 1;
+            const gridSize = 200;
+            const startX = Math.floor(camX / gridSize) * gridSize;
+            const endX = startX + canvas.width + gridSize;
+            const startY = Math.floor(camY / gridSize) * gridSize;
+            const endY = startY + canvas.height + gridSize;
+
+            ctx.beginPath();
+            for (let x = startX; x < endX; x += gridSize) {
+                ctx.moveTo(x, camY); ctx.lineTo(x, camY + canvas.height);
+            }
+            for (let y = startY; y < endY; y += gridSize) {
+                ctx.moveTo(camX, y); ctx.lineTo(camX + canvas.width, y);
+            }
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+            backgroundStars.forEach(star => {
+                if (star.x >= camX - 10 && star.x <= camX + canvas.width + 10 &&
+                    star.y >= camY - 10 && star.y <= camY + canvas.height + 10) {
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            mothership.draw(ctx);
+
+            debrisList.forEach(debris => {
+                if (debris.x >= camX - 50 && debris.x <= camX + canvas.width + 50 &&
+                    debris.y >= camY - 50 && debris.y <= camY + canvas.height + 50) {
+                    debris.draw(ctx);
+                }
+            });
+
+            enemyList.forEach(enemy => {
+                if (enemy.x >= camX - 50 && enemy.x <= camX + canvas.width + 50 &&
+                    enemy.y >= camY - 50 && enemy.y <= camY + canvas.height + 50) {
+                    enemy.draw(ctx);
+                }
+            });
+
+            playerProjectiles.forEach(p => p.draw(ctx));
+            enemyProjectiles.forEach(p => p.draw(ctx));
+
+            laserBeams.forEach(beam => {
+                ctx.strokeStyle = '#a855f7';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(beam.x1, beam.y1);
+                ctx.lineTo(beam.x2, beam.y2);
+                ctx.stroke();
+            });
+
+            particles.forEach(p => p.draw(ctx));
+            player.draw(ctx);
+            floatingTexts.forEach(ft => ft.draw(ctx));
+
+            ctx.restore();
+
+            renderMinimap();
+        }
+
+        function renderMinimap() {
+            minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+
+            const scale = minimapCanvas.width / WORLD_SIZE;
+
+            minimapCtx.fillStyle = '#f59e0b';
+            minimapCtx.beginPath();
+            minimapCtx.arc(mothership.x * scale, mothership.y * scale, 4, 0, Math.PI * 2);
+            minimapCtx.fill();
+
+            debrisList.forEach(d => {
+                minimapCtx.fillStyle = d.type.hazard ? '#f43f5e' : (d.type.isFuel ? '#fbbf24' : (d.type.isBlackBox ? '#ec4899' : '#cbd5e1'));
+                minimapCtx.fillRect(d.x * scale, d.y * scale, 2, 2);
+            });
+
+            enemyList.forEach(e => {
+                minimapCtx.fillStyle = '#ef4444';
+                minimapCtx.beginPath();
+                minimapCtx.arc(e.x * scale, e.y * scale, 3, 0, Math.PI * 2);
+                minimapCtx.fill();
+            });
+
+            minimapCtx.fillStyle = '#38bdf8';
+            minimapCtx.beginPath();
+            minimapCtx.arc(player.x * scale, player.y * scale, 3.5, 0, Math.PI * 2);
+            minimapCtx.fill();
+        }
+
+        window.onload = function() {
+            initGame();
+        };
+    </script>
+</body>
+</html>
